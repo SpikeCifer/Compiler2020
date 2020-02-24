@@ -1,4 +1,6 @@
 # ---------------------------------------------------------||-----------------------------------------------------------
+# ZAPPIDIS
+# PARASXIS
 # -----------------------------------------------------|GLOBALS|--------------------------------------------------------
 source = ""
 char_index = 0
@@ -35,7 +37,7 @@ MULTIPLYTK = 17
 BRACKETTK = 18
 SEPARATORTK = 29
 COMPARATORTK = 20
-COMPARATORTK2 = 21
+#COMPARATORTK2 = 21
 DECLARATORTK = 22
 
 stateR = {EOFTK, IDTK, CONSTANTTK, ADDTK,
