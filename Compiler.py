@@ -1,9 +1,6 @@
-# ---------------------------------------------------------||-----------------------------------------------------------
-# ZAPPIDIS
-# PARASXIS
 # -----------------------------------------------------|GLOBALS|--------------------------------------------------------
 source = ""
-char_index = 0
+start_index = 0
 
 line_index = 1              # Will be used for errors
 char_index_of_line = 1      # Will be used for errors
@@ -20,30 +17,30 @@ state6 = 6    # Lex read * while in long comment state
 state7 = 7    # Lex read / while in long comment state
 state8 = 8    # Short Comment State
 state9 = 9    # Lex read / while in short comment state
+state10 = 10  # Lex has read * symbol while in short comment
 
-# These states have to do with double char opps
-state10 = 10  # Lex has read < symbol
-state11 = 11  # Lex has read > symbol
-state12 = 12  # Lex has read : symbol
+# These states have to do with double char ops
+state11 = 11  # Lex has read < symbol
+state12 = 12  # Lex has read > symbol
+state13 = 13  # Lex has read : symbol
 
-specials1 = {state3, state4}                # The states where depending on the next char return or not
-specials2 = {state10, state11, state12}     # The states where depending on the next char they add it to the word
+specials1 = {state3, state4}       # The states where depending on the next char return or not
+specials2 = {state10, state11}     # The states where depending on the next char they add it to the word
 # ------------------------ DEFINE GENERAL TOKENS PART ------------------------
-EOFTK = 13
-IDTK = 14
-CONSTANTTK = 15
-ADDTK = 16
-MULTIPLYTK = 17
-BRACKETTK = 18
-SEPARATORTK = 29
-COMPARATORTK = 20
-#COMPARATORTK2 = 21
+EOFTK = 14
+IDTK = 15
+CONSTANTTK = 16
+ADDTK = 17
+MULTIPLYTK = 18
+BRACKETTK = 19
+SEPARATORTK = 20
+COMPARATORTK = 21
 DECLARATORTK = 22
 
 stateR = {EOFTK, IDTK, CONSTANTTK, ADDTK,
-          MULTIPLYTK, BRACKETTK, SEPARATORTK, COMPARATORTK, COMPARATORTK2, DECLARATORTK}
+          MULTIPLYTK, BRACKETTK, SEPARATORTK, COMPARATORTK, DECLARATORTK}
 
-singles = {ADDTK, MULTIPLYTK, BRACKETTK, SEPARATORTK}
+singles = {ADDTK, BRACKETTK, SEPARATORTK}
 longs = {state1, state2}
 
 # ------------------------ DEFINE SPECIAL TOKENS PART ------------------------
@@ -72,10 +69,10 @@ INOUTTK = 43
 INPUTTK = 44
 PRINTTK = 45
 
-taken_words = ["program", "declare", "if", "else", "while", "doublewhile", "loop", "exit", "forcase", "incase", "when",
-               "default", "not", "and", "or", "function", "procedure", "call", "return", "in", "inout", "input", "print"
-               ]
-double_opps = ["<>", ">=", "<=", ":="]
+taken_words = ["program", "declare", "if", "else", "while", "doublewhile", "loop", "exit", "forcase", "incase",
+               "when", "default", "not", "and", "or", "function", "procedure", "call", "return", "in",
+               "inout", "input", "print"]
+double_ops = ["<>", ">=", "<=", ":="]
 # ----------------------- LEX ERRORS -----------------------
 Error1 = 46  # Char after Digit
 Error2 = 47  # Closed long comment without opening one
@@ -86,55 +83,66 @@ stateE = {Error1, Error2, Error3, Error4, Error5}
 # ----------------------- LEX PART -----------------------
 states = [
     # state0
-    [state1, state2, ADDTK, state3, state4, state10, state11, COMPARATORTK, state12, SEPARATORTK, SEPARATORTK, BRACKETTK,
-     BRACKETTK, BRACKETTK, BRACKETTK, BRACKETTK, BRACKETTK, state0, state0, EOFTK, Error5],
+    [state1, state2, ADDTK, state3, state4, state11, state12,
+     COMPARATORTK, state13, SEPARATORTK, SEPARATORTK, BRACKETTK, BRACKETTK, BRACKETTK,
+     BRACKETTK, BRACKETTK, BRACKETTK, state0, state0, EOFTK, Error5],
     # state1
-    [state1, state1, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK,
-     IDTK, IDTK, IDTK],
+    [state1, state1, IDTK, IDTK, IDTK, IDTK, IDTK,
+     IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK,
+     IDTK, IDTK, IDTK, IDTK, IDTK, IDTK, IDTK],
     # state2
-    [Error1, state2, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK,
-     CONSTANTTK,  CONSTANTTK,  CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK,
-     CONSTANTTK, CONSTANTTK],
+    [Error1, state2, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK,
+     CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK,
+     CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK, CONSTANTTK],
     # state3
-    [MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, Error2, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,
-     MULTIPLYTK,  MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,
-     MULTIPLYTK, MULTIPLYTK],
+    [MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, Error2, MULTIPLYTK, MULTIPLYTK,
+     MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,  MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,
+     MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,  MULTIPLYTK, MULTIPLYTK, MULTIPLYTK],
     # state4
-    [MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, state5, state8, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,
-     MULTIPLYTK,  MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,
-     MULTIPLYTK, MULTIPLYTK],
+    [MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, state5, state8, MULTIPLYTK, MULTIPLYTK,
+     MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,  MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,
+     MULTIPLYTK, MULTIPLYTK, MULTIPLYTK, MULTIPLYTK,  MULTIPLYTK, MULTIPLYTK, MULTIPLYTK],
     # state5
-    [state5, state5, state5, state6, state7, state5, state5, state5, state5, state5, state5, state5, state5, state5,
+    [state5, state5, state5, state6, state7, state5, state5,
+     state5, state5, state5, state5, state5, state5, state5,
      state5, state5, state5, state5, state5, Error4, state5],
     # state6
-    [state5, state5, state5, state5, state0, state5, state5, state5, state5, state5, state5, state5, state5, state5,
+    [state5, state5, state5, state5, state0, state5, state5,
+     state5, state5, state5, state5, state5, state5, state5,
      state5, state5, state5, state5, state5, Error4, state5],
     # state7
-    [state5, state5, state5, Error3, Error3, state5, state5, state5, state5, state5, state5, state5, state5, state5,
+    [state5, state5, state5, Error3, Error3, state5, state5,
+     state5, state5, state5, state5, state5, state5, state5,
      state5, state5, state5, state5, state5, Error4, state5],
     # state8
-    [state8, state8, state8, state8, state9, state8, state8, state8, state8, state8, state8, state8, state8, state8,
+    [state8, state8, state8, state10, state9, state8, state8,
+     state8, state8, state8, state8, state8, state8, state8,
      state8, state8, state8, state0, state8, EOFTK, state8],
     # state9
-    [state8, state8, state8, Error3, Error3, state8, state8, state8, state8, state8, state8, state8, state8, state8,
+    [state8, state8, state8, Error3, Error3, state8, state8,
+     state8, state8, state8, state8, state8, state8, state8,
      state8, state8, state8, state0, state8, EOFTK, state8],
     # state10
-    [COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
-     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
-     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK],
+    [state8, state8, state8, state8, Error2, state8, state8,
+     state8, state8, state8, state8, state8, state8, state8,
+     state8, state8, state8, state0, state8, EOFTK, state8],
     # state11
-    [COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
-     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
-     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK],
+    [COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
+     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
+     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK],
     # state12
-    [SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, DECLARATORTK,
-     SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK,
-     SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK],
+    [COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
+     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK,
+     COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK, COMPARATORTK],
+    # state13
+    [SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK,
+     DECLARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK,
+     SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK, SEPARATORTK],
 ]
 
 
 def error(error_type):
-    print("There was a Lex Error in Line:", line_index, "character:", char_index_of_line)
+    print("There was a Lex Error in Line:", line_index, "Character:", char_index_of_line)
     print("More specifically:")
     if error_type == Error1:
         print("\tError", error_type, ": Digits can not be followed by characters")
@@ -152,7 +160,7 @@ def error(error_type):
 
 
 def eof(current_char):
-    total = char_index + current_char
+    total = start_index + current_char
     if total > len(source)-1:
         return True
     return False
@@ -182,7 +190,7 @@ def find_symbol(symbol):
         else:
             return 7
 
-    elif symbol in ";,:":
+    elif symbol in ":;,":
         if symbol == ":":
             return 8
         elif symbol == ";":
@@ -191,7 +199,18 @@ def find_symbol(symbol):
             return 10
 
     elif symbol in "()[]{}":
-        return 11
+        if symbol == "(":
+            return 11
+        elif symbol == ")":
+            return 12
+        elif symbol == "[":
+            return 13
+        elif symbol == "]":
+            return 14
+        elif symbol == "{":
+            return 15
+        else:
+            return 16
 
     elif symbol in "\n \t":
         if symbol == "\n":
@@ -205,78 +224,93 @@ def find_symbol(symbol):
         return 20
 
 
-def tokenize(token, word):
-    if token == IDTK:
-        for i in range(0, len(taken_words)):
-            if word == taken_words[i]:
-                token = i + 23
-    return token
-
-
-def change_state(state, char):
+def update_state(state, char):
     column = find_symbol(char)
-    # print(state, column)
     state = states[state][column]
     return state
 
 
+def identify(token, word):
+    for i in range(0, len(taken_words)):
+        if word == taken_words[i]:
+            token = i + 23
+    return token
+
+
+def handle_return(token, word, temp, symbol, index):
+    global start_index
+    if token == IDTK:
+        token = identify(token, word)
+        start_index += index - 1
+        return token, word
+
+    elif token == CONSTANTTK:
+        start_index += index - 1
+        return token, word
+
+    elif token in singles:
+        if temp == ":":
+            start_index += index - 1
+            return token, temp
+        else:
+            start_index += index
+        return token, symbol
+
+    elif token == MULTIPLYTK:
+        start_index += index - 1
+        return token, temp
+
+    elif token == COMPARATORTK:
+        opp = temp + symbol
+        if opp in double_ops:
+            start_index += index
+            return token, opp
+        elif symbol == "=":
+            start_index += index
+            return token, symbol
+        else:
+            start_index += index - 1
+            return token, temp
+
+    elif token == DECLARATORTK:
+        start_index += index
+        return token, ":="
+
+    elif token == EOFTK:
+        start_index += index
+        return token, ""
+
+
 def lex():
-    global char_index, char_index_of_line
     current_char = 0
-    word = ""
     state = state0
+    word = ""  # Word must be a buffer[30]
+    temp = ""
+    symbol = ""
     while state not in stateR and state not in stateE:
-        # ---------------- PART 1 ----------------
         if eof(current_char):
-            state = states[state][19]
-            break
-
-        c1 = source[char_index + current_char]
-        state = change_state(state, c1)
-        # ---------------- PART 2 ----------------
-        if state in specials1 or state in specials2:  # I need to read the next char as well
-            c2 = ""
-            next_char = current_char + 1
-            if eof(next_char):
-                state = states[state][19]
-                word = c1
-                break
-
-            else:
-                if state in specials1:
-                    c2 = source[char_index + next_char]
-                    state = change_state(state, c2)
-                    if state in stateR:
-                        word = c1
-
-                else:
-                    c2 = source[char_index + next_char]
-                    state = change_state(state, c2)
-                    opp = c1 + c2
-                    if opp in double_opps:
-                        word = opp
-                    else:
-                        word = c1
-            char_index_of_line += 1
+            state = states[state][19]  # All of them are in stateR so it exits immediately
+            current_char +=1
+        else:
+            symbol = source[start_index + current_char]
+            state = update_state(state, symbol)
+            if state in longs:  # State1 or State2 create IDs or Constants
+                word += symbol
+            elif state == state3 or state == state4:
+                temp = symbol
+            elif state == state5 or state == state8:
+                temp = ""
+            elif state == state11 or state == state12 or state == state13:
+                temp = symbol
+            # Any other state does not affect the word
             current_char += 1
 
-        else:  # I don't need to read the next character
-            if state in longs:
-                word += c1
-            elif state in singles:
-                word = c1
-
+    # start_index += current_char
     if state in stateE:
         error(state)
-
-    if state == IDTK:
-        token = tokenize(state, word)  # Find if word is taken
     else:
         token = state
-    char_index += current_char
-    return token, word
-
-# --------------------------------------------------------------------------
+        return handle_return(token, word, temp, symbol, current_char)
 
 
 def load_source(filename):
@@ -287,6 +321,6 @@ def load_source(filename):
 
 def main():
     load_source("source.min")
-    for i in range(0, 1):
+    for i in range(0, 4):
         print(lex())
 main()
