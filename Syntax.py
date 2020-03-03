@@ -325,417 +325,363 @@ def main():
         print(lex())
 main()
 
-
+#------------------------------------------------------------------- SYNTAX -------------------------------------------------------------------------------------------#
 def error(s):
     print(s);
 
 
 def program():
-	if (token == PROGRAMTK):
-		token = lex();
-		if (token == IDTK):
-			token = lex()[0];
-			block();
-                else error("program name expected");
-	else error("the keyword 'program' was expected");		
-
+    if token == PROGRAMTΚ:
+        token = lex()[0];
+        if token == IDTK:
+            token = lex()[0];
+            block();
+        else: error("The keyword 'id' was expected");
+    else: error("The keyword 'program' was expected");	
+		
+    
 
 
 def block():
-
-	declarations();
-	subprograms();
-	statements();
+    declarations();
+    subprograms();
+    statements();
 
 
 def declarations():
-	while (token == DECLARETK):
-			token = lex()[0];
-			varlist();
-			if (token == semicoltk):
-				token = lex()[0];
-			
-	
+    while token == DECLARETK:
+        token = lex()[0];
+        varlist();
+        if token == SEPARATORTK:
+            token = lex()[0];
 
 
 def varlist():
-
-	if (token == IDTK):
-		token = lex()[0];
-		while (token == comtk):
-			token = lex()[0];
+    if token == IDTK:
+        token = lex()[0];
+        while token == SEPARATORTK:
+            token = lex()[0];
 
 def subprograms():
-
-	while (token == FUNCTIONTK || token == PROCEDURETK):
-		subprograms();
+    while (token == FUNCTIONTK or token == PROCEDURETK):
+        subprograms();
     
 
 def subprogram():
-
-	if (token == FUNCTIONTK):
-		token = lex()[0];
-		if (token == IDTK):
-			token = lex()[0];
-			funcbody();
-		else error ("The keyword 'id' was expected");
-		
-	else if (token == PROCEDURETK):
-		token = lex()[0];
-		if (token == IDTK):
-			token = lex()[0];
-			funcbody();
-		else error ("The keyword 'id' was expected");
+    if token == FUNCTIONTK:
+        token = lex()[0];
+        if token == IDTK:
+            token = lex()[0];
+            funcbody();
+        else: error ("The keyword 'id' was expected");
+    elif token == PROCEDURETK:
+        token = lex()[0];
+        if (token == IDTK):
+            token = lex()[0];
+            funcbody();
+        else: error ("The keyword 'id' was expected");
 	
 
 
 def funcbody():
-	formalpars();
-	if (token == BRACKETTK):
-		token = lex()[0];
-		block();
-		if (token == BRACKETTK):
-			token = lex()[0];
-		else error ("Right curly brackett expected");
+    formalpars();
+    if token == BRACKETTK:
+        token = lex()[0];
+        block();
+        if token == BRACKETTK:
+            token = lex()[0];
+        else: error ("Right curly brackett expected");
 
 def formalpars():
-
-	if (token == BRACKETTK):
-		token = lex()[0];
-		formalparlist();
-		if (token == BRACKETTK):
-			token = lex()[0];
-		else error ("right bracket expected");
+    if token == BRACKETTK:
+        token = lex()[0];
+        formalparlist();
+        if token == BRACKETTK:
+            token = lex()[0];
+        else: error ("right bracket expected");
 
 
 def formalparitem():
-	if (token == INTTK):
-		token = lex()[0];
-		if (token == IDTK):
-			token = lex()[0];
-		else error ("The keyword 'id' expected");
-	
-	else if (token == INOUTTK):
-		token = lex()[0];
-		if (token == idtk):
-			token = lex()[0];
-		else error ("The keyword 'id' expected");
-		
-	
+    if token == INTTK:
+        token = lex()[0];
+        if token == IDTK:
+            token = lex()[0];
+        else: error ("The keyword 'id' expected");
+    elif token == INOUTTK:
+        token = lex()[0];
+        if (token == idtk):
+            token = lex()[0];
+        else: error ("The keyword 'id' expected");
 
 
 def statements():
-	statement();
-	if (token == BRACKETTK):
-		token = lex()[0];
-		statement();
-		while (token == semicoltk):
-			statement();
-		if (token == BRACKETTK):
-			token = lex()[0];
-		else error ("Right curly bracket expected");
+    statement();
+    if token == BRACKETTK:
+        token = lex()[0];
+        statement();
+        while (token == SEPARATORTK):
+            statement();
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error ("Right curly bracket expected");
+
+
+
+def statement():
+    assignmentstat();
+    ifstat();
+    whilestat();
+    doublewhilestat();
+    loopstat();
+    exitstat();
+    forcasestat();
+    incase();
+    callstat();
+    returnstat();
+    inputstat();
+    priststat();
+
+
+
+def assignmentstat():
+    if token == IDKT:
+        token = lex()[0];
+        if token == SEPARATORTK:
+            token = lex()[0];
+            if token == COMPARATORTK:
+                token = lex()[0];
+                expression();
+    else: error("The keyword 'id' was expected");
+
 
 
 def ifstat():
-
-	if (token == BRACKETTK):
-		token = lex()[0];
-		condition();
-		if(token == BRACKETTK):
-			token = lex()[0];
-		else error ("Right brackett expected");
-	  
-	if (token == THENTK):
-		token = lex()[0];
-		statements();
-		elsepart();
-	else error ("the keyword ‘then’ was expected"); 
+    if token == IFTK:
+        token = lex()[0];
+    if token == BRACKETTK:
+        token = lex()[0];
+        condition();
+        if token == BRACKETTK:
+            token = lex()[0];
+        else: error ("Right brackett expected"); 
+    if token == THENTK:
+        token = lex()[0];
+        statements();
+        elsepart();
+    else: error ("the keyword ‘then’ was expected"); 
 
 
 
 def elsepart():
-    
-	if (token == THENTK):
-		token = lex()[0];
-		statements();
+    if token == THENTK:
+        token = lex()[0];
+        statements();
 
 
 def whilestat():
+    if token == WHILETK:
+        token = lex()[0];
+        if token == BRACKETTK:
+            token = lex()[0];
+            condition();
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error ("Right brackett expected");
+        statements();
+    else: error ("the keyword 'while' was expected");	
+
+
+def doublewhilestat():
+    if token == DOUBLEWHILETK:
+        token = lex()[0];
+        if token == BRACKETTK:
+            token = lex()[0];
+            condition();
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error ("Right brackett expected");
+        statements();
+        if token == ELSETK:
+            token = lex()[0];
+            statements();
+    else: error ("The keyword 'doublewhile' was expected");
+		
+		
+	
+def loopstat():
+    if token == LOOPTK:
+        token = lex()[0];
+        statements();
+    else: error ("The keyword 'loop' was expected");
+
+
+
+def exitstat():
+    if token == EXITTK:
+        token = lex()[0];
+    else: error("The keyword 'exit' was expected");	
+
+	
+	
+def forcasestat():
+    if token == FORCASETK:
+        while(token == WHENTK):
+            condition();
+            if token == SEPARATORTK:
+                statements();
+    else: error("The keyword 'forcase' was expected");
+
+
+	
+def incasestat():
+    if token == INCASETK:
+        while (token == WHENTK):
+            condition();
+            if token == SEPARATORTK:
+                statements();
+    else: error("The keyword 'incase' was expected");
+	
+		
+		
+def returnstat():
+    if token == RETURNTK:
+        token = lex()[0];
+        expression();
+    else: error ("The keyword 'return' was expected");
+
+
+
+
+def callstat():
+    if token == CALLTK:
+        token = lex()[0];
+        if token == IDTK:
+            token = lex()[0];
+            actualpars();
+        else: error ("The keyword 'id' was expected");
+    else: error ("The keyword 'call' was expected");
+
+
+
+def printstat():
+    if token == PRINTTK:
+        token = lex()[0];
+        if token == BRACKETTK:
+            token = lex()[0];
+            expression();
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error ("right bracket expected");
+    else: error ("The keyword 'print' was expected");
+
+
+
+def inputstat():
+    if token == INPUTTK:
+        token = lex()[0];
+        if token == BRACKETTK:
+            token == lex();
+            if token == IDTK:
+                token = lex()[0];
+            else: error ("The keyword 'id' was expected");
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error ("Right bracket expected");
+    else: error ("The keyword 'input' was expected");
+
+
+
+def actualpars():
+    if token == BRACKETTK:
+        token = lex()[0];
+        actualparlist();
+        if token == BRACKETTK:
+            token = lex()[0];
+        else: error ("Right bracket expected");
+
+def actualparitem():
+    if token == INTTK:
+        token = lex()[0];
+        expression();
+    elif token == INOUTTK:
+        token = lex()[0];
+        if token == IDTK:
+            token = lex()[0];
+        else: error ("The keyword 'id' was expected");
     
-	if (token == WHILETK):
-		token = lex()[0];
-		if (token == BRACKETTK):
-			token = lex()[0];
-			condition();
-			if(token == BRACKETTK):
-				token = lex()[0];
-			else error ("Right brackett expected");
-		statements();
-	else error ("the keyword 'while' was expected");	
+                
+                    
+def condition():
+    boolterm();
+    while (token == ORTK):
+        boolterm();
 
 
-void doublewhilestat()
-{
-	if (token == DOUBLEWHILETK){
-		token = lex()[0];
-		if (token == BRACKETTK){
-			token = lex()[0];
-			condition();
-			if(token == BRACKETTK){
-				token = lex()[0];
-			else error ("Right brackett expected");
-			}	
-		}
-		statements();
-		if (token == ELSETK){
-			token = lex()[0];
-			statements();
-		}
-	else error ("The keyword 'doublewhile' was expected");
-	}
-}		
-		
-	
-void loopstat()
-{
-	if (token == LOOPTK){
-		token = lex()[0];
-		statements();
-	else error ("The keyword 'loop' was expected");
-	}
-}
-
-
-void exitstat()
-{
-	if (token == EXITTK){
-		token = lex()[0];
-	else error("The keyword 'exit' was expected")	
-	}
-}
-	
-	
-void forcasestat()
-{
-		if (token == FORCASETK){
-			while (token == WHENTK){
-				condition();
-				if (token == coltk){
-					statements();
-				}
-			}
-		else error ("The keyword 'forcase' was expected");
-		}
-}
-
-	
-void incasestat()
-{
-	if (token == INCASETK){
-			while (token == WHENTK){
-				condition();
-				if (token == coltk){
-					statements();
-				}
-			}
-	else error ("The keyword 'incase' was expected");
-	}	
-}	
-		
-		
-void returnstat()
-{
-	if (token == RETURNTK){
-		token = lex()[0];
-		expression();
-	else error ("The keyword 'return' was expected");
-	}
-}
+def boolterm():
+    boolfactor();
+    while (token == ANDTK):
+        boolfactor();
 
 
 
-void callstat()
-{
-	if (token == CALLTK){
-		token = lex()[0];
-		if (token == IDTK){
-			token = lex()[0];
-			if (token == BRACKETTK){
-				token = lex()[0];
-				actualparlists();
-				if (token == BRACKETTK){
-					token = lex()[0];
-					else error ("right bracket expected");
-				}	
-			}
-		else error ("The keyword 'id' was expected");
-		}
-	else error ("The keyword 'call' was expected");
-	}
-}
+def boolfactor():
+    if token == NOTTK:
+        token = lex()[0];
+        if token == BRACKETTK:
+            token = lex()[0];
+            condition();
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error("right bracket expected");                          
+        elif token == BRACKETTK:
+            token = lex()[0];
+            condition ();
+            if token == BRACKETTK:
+                token = lex()[0];
+            else: error("right bracket expected"); 		
+        else:
+            expression();
+            relOper();
+            expression();
 
 
-void printstat()
-{
-	if (token == PRINTTK){
-		token = lex()[0];
-		if (token == BRACKETTK){
-			token = lex()[0];
-			expression();
-			if (token == BRACKETTK){
-				token = lex()[0];
-				else error ("right bracket expected");
-			}
-		}
-	else error ("The keyword 'print' was expected");
-	}
-}
+def expression():
+    optionalsign();
+    term();
+    while (token == ADDTK):
+        addoper();
+        term();
 
 
-void inputstat()
-{
-	if (token == INPUTTK){
-		token = lex()[0];
-		if (token == BRACKETTK){
-			token == lex();
-			if (token == IDTK){
-				token = lex()[0];
-			else error ("The keyword 'id' was expected");
-			}
-			if (token == BRACKETTK){
-				token = lex()[0];
-			else error ("Right bracket expected");
-			}
-		}
-	else error ("The keyword 'input' was expected");
-    }
-}
-
-
-void actualpars()
-{
-	if (token == BRACKETTK){
-			token = lex()[0];
-			actualparlist();
-			if (token == BRACKETTK){
-				token = lex()[0];
-			else error ("Right bracket expected");
-			}	
-	}
-}
-
-
-void actualparitem ()
-{
-	if (token == INTTK){
-		token = lex()[0];
-		expression();
-	}
-	else if (token == INOUTTK){
-		token = lex()[0];
-		if (token == IDTK){
-			token = lex()[0];
-		else error ("The keyword 'id' was expected");
-		}
-	}
-}
-
-
-void condition()
-{
-	boolterm();
-	while (token == ORTK ){
-		boolterm();
-	}
-}	
-
-
-void boolterm()
-{
-	boolfactor();
-	while (token == ANDTK ){
-		boolfactor();
-	}
-}
-
-
-void boolfactor()
-{
-	if (token == NOTTK){
-			token = lex();
-			if (token == BRACKETTK){
-				token = lex()[0];
-				condition ();
-			}
-			if (token == BRACKETTK){
-				token = lex()[0];
-			else error(“right bracket expected”); 
-			}
-	else if (token == BRACKETTK){
-				token = lex()[0];
-				condition ();
-			}
-			if (token == BRACKETTK){
-				token = lex()[0];
-			else error(“right bracket expected”); 
-			}		
-	else{
-			expression();
-			relOper();
-			expression();
-	}
-  }
-}
-
-void expression()
-{
-	optionalsign();
-	term();
-	while (token == plustk || token == minustk){
-		addoper();
-		term();
-	}
-}
-
-void term()
-{
-	factor();
-	while (token == asterisktk || token == forwardslashtk){
-		mulOper();
-		factor();
-	}
-}
+def term():
+    factor();
+    while(token == MULTIPLYTK):
+        mulOper();
 
 
 
+def factor():
+    if token == CONSTANTTK:
+        token = lex()[0];
+    elif token == BRACKETTK:
+        token = lex()[0];
+        condition();
+        if token == BRACKETTK:
+            token = lex()[0];
+        else: error("Right bracket expected");
+    else:
+        if token == IDTK:
+            token = lex()[0];
+            idtail();
+                
+
+def idtail():
+    actualpars();
 
 
+def optionalsign():
+    addoper();
 
-
-void addoper()
-{
-	if (token == ADDTK){
-		token = lex();
-	}
-	else if (token == minustk){
-		token = lex();
-	}
-}
-
-void mulOper()
-{
-	if (token == asterisktk){
-		token = lex();
-	}
-	else if (token == forwardslashtktk){
-		token = lex();
-	}
-}
-
-void optionalsign()
-{
-	addoper();
-}
 	
 				
 
