@@ -466,14 +466,14 @@ def formalparitem():
         if lexeme[0] == IDTK:
             lexeme = lex()
         else:
-            syntax_error("Expected parameter name")
+            syntax_error("Expected parameter name after in keyword")
 
     elif lexeme[0] == INOUTTK:
         lexeme = lex()
         if lexeme[0] == IDTK:
             lexeme = lex()
         else:
-            syntax_error("Expected parameter name")
+            syntax_error("Expected parameter name after inout keyword")
 
 
 def statements():
@@ -487,7 +487,7 @@ def statements():
         if lexeme[0] == BRACKETTK and lexeme[1] == "}":
             lexeme = lex()
         else:
-            syntax_error("Right } bracket expected");
+            syntax_error("Right } bracket expected")
     else:
         statement()
 
