@@ -1,0 +1,8 @@
+program checkSimpleStaments{
+	{
+	input(b);
+	a := + b + (c - d) * f;
+	print(a);
+	exit
+	}
+}

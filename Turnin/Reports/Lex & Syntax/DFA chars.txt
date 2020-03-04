@@ -1,0 +1,17 @@
+a = char
+b = digit
+c = + or -
+d = *
+e = /
+f = <
+g = >
+h = :
+i = "/n"
+j = " " or /t
+k = any other valid input
+l = EOF
+m = anything else
+Special character z = anything else at all
+
+s14 = ERROR state
+s15 = RET state

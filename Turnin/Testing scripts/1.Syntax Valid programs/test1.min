@@ -1,0 +1,9 @@
+program test1 {
+  declare a,b,c,d;
+  declare g,e,f;
+  {
+  a := 38;
+  b := 42 + a;
+  c := 15584845
+  }
+}
