@@ -1,9 +1,18 @@
+# ---------------------------------------------------|CONTRIBUTERS|-----------------------------------------------------
+# 2971: ΣΤΥΛΙΑΝΟΣ ΖΑΠΠΙΔΗΣ
+# 3059: ΖΗΣΙΜΟΣ ΠΑΡΑΣΧΗΣ
+# ----------------------------------------------------|TODO_Notes|------------------------------------------------------
+#
+#
+# -------------------------------------------------|Other Libraries|----------------------------------------------------
+from termcolor import colored
 # -----------------------------------------------------|GLOBALS|--------------------------------------------------------
 source = ""
 start_index = 0
+lexeme = [-1, ""]  # The lexeme that gets returned from lexer
 
 line_index = 1              # Will be used for errors
-char_index_of_line = 1      # Will be used for errors
+char_index_of_line = 0      # Will be used for errors
 # ------------------------ DEFINE STATES PART ------------------------
 state0 = 0    # This is the starting state
 state1 = 1    # Lex is reading IDs
@@ -26,7 +35,8 @@ state13 = 13  # Lex has read : symbol
 
 specials1 = {state3, state4}       # The states where depending on the next char return or not
 specials2 = {state10, state11}     # The states where depending on the next char they add it to the word
-# ------------------------ DEFINE GENERAL TOKENS PART ------------------------
+comments = {state5, state6, state7, state8, state9, state10}
+# ---------------------------- DEFINE GENERAL TOKENS PART ----------------------------
 EOFTK = 14
 IDTK = 15
 CONSTANTTK = 16
@@ -43,7 +53,7 @@ stateR = {EOFTK, IDTK, CONSTANTTK, ADDTK,
 singles = {ADDTK, BRACKETTK, SEPARATORTK}
 longs = {state1, state2}
 
-# ------------------------ DEFINE SPECIAL TOKENS PART ------------------------
+# ---------------------------------|DEFINE KEYWORDS PART|---------------------------------
 # All of them were originally IDTKs, we now come to specify them
 PROGRAMTK = 23
 DECLARETK = 24
@@ -54,7 +64,7 @@ DOUBLEWHILETK = 28
 LOOPTK = 29
 EXITTK = 30
 FORCASETK = 31
-INCASETK  = 32
+INCASETK = 32
 WHENTK = 33
 DEFAULTTK = 34
 NOTTK = 35
@@ -68,19 +78,21 @@ INTK = 42
 INOUTTK = 43
 INPUTTK = 44
 PRINTTK = 45
+THENTK = 46
 
 taken_words = ["program", "declare", "if", "else", "while", "doublewhile", "loop", "exit", "forcase", "incase",
                "when", "default", "not", "and", "or", "function", "procedure", "call", "return", "in",
-               "inout", "input", "print"]
+               "inout", "input", "print","then"]
 double_ops = ["<>", ">=", "<=", ":="]
 # ----------------------- LEX ERRORS -----------------------
-Error1 = 46  # Char after Digit
-Error2 = 47  # Closed long comment without opening one
-Error3 = 48  # Opened second comment inside another one
-Error4 = 49  # EOF while in long comment
-Error5 = 50  # Invalid symbol
+Error1 = 47  # Char after Digit
+Error2 = 48  # Closed long comment without opening one
+Error3 = 49  # Opened second comment inside another one
+Error4 = 50  # EOF while in long comment
+Error5 = 51  # Invalid symbol
 stateE = {Error1, Error2, Error3, Error4, Error5}
 # ----------------------- LEX PART -----------------------
+
 states = [
     # state0
     [state1, state2, ADDTK, state3, state4, state11, state12,
@@ -141,21 +153,33 @@ states = [
 ]
 
 
-def error(error_type):
-    print("There was a Lex Error in Line:", line_index, "Character:", char_index_of_line)
-    print("More specifically:")
+def lex_error(error_type, c):
+    print(colored("Warning!", "red"))
+    print(colored("Lex Error", "blue"),
+          colored("\nLine:", "yellow"), line_index,
+          colored("Character:", "green"), char_index_of_line)
+    error_message = "Error_Type " + str(error_type)
     if error_type == Error1:
-        print("\tError", error_type, ": Digits can not be followed by characters")
+        error_message += ": Digits can not be followed by characters"
     elif error_type == Error2:
-        print("\tError", error_type, ": Closed long comment without opening one")
+        error_message += ": Closed long comment without opening one"
     elif error_type == Error3:
-        print("\tError", error_type, ": Opened second comment inside another one")
+        error_message += ": Opened second comment inside another one"
     elif error_type == Error4:
-        print("\tError", error_type, ": EOF while in long comment")
+        error_message += ": EOF while in long comment"
     elif error_type == Error5:
-        print("\tError", error_type, ": Invalid symbol")
+        error_message += ": Invalid symbol " + "'"+c+"'"
     else:
-        print("\tUndefined error")
+        error_message += "404: Undefined Error"
+    print(colored(error_message, "grey"))
+    exit()
+
+
+def syntax_error(s):
+    print(colored("Warning!", "red"))
+    print(colored("Syntax Error","blue"))
+    print(colored("In line", "yellow"), str(line_index))
+    print(colored(s, "grey", "on_red"))
     exit()
 
 
@@ -167,7 +191,6 @@ def eof(current_char):
 
 
 def find_symbol(symbol):
-    global line_index, char_index_of_line
     if symbol in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
         return 0
 
@@ -214,8 +237,6 @@ def find_symbol(symbol):
 
     elif symbol in "\n \t":
         if symbol == "\n":
-            line_index += 1
-            char_index_of_line = 0
             return 17
         else:
             return 18
@@ -230,58 +251,62 @@ def update_state(state, char):
     return state
 
 
-def identify(token, word):
+def identify(tk, word):
     for i in range(0, len(taken_words)):
         if word == taken_words[i]:
-            token = i + 23
-    return token
+            tk = i + 23
+    return tk
 
 
-def handle_return(token, word, temp, symbol, index):
+def handle_return(tk, word, temp, symbol, index):
     global start_index
-    if token == IDTK:
-        token = identify(token, word)
+    if tk == IDTK:
+        tk = identify(tk, word)
         start_index += index - 1
-        return token, word
+        return tk, word
 
-    elif token == CONSTANTTK:
+    elif tk == CONSTANTTK:
+        number = int(word)
+        if number > 32767 or number < -32767:
+            print("Warning number " + word + " is out of bounds")
         start_index += index - 1
-        return token, word
+        return tk, word
 
-    elif token in singles:
+    elif tk in singles:
         if temp == ":":
             start_index += index - 1
-            return token, temp
+            return tk, temp
         else:
             start_index += index
-        return token, symbol
+        return tk, symbol
 
-    elif token == MULTIPLYTK:
+    elif tk == MULTIPLYTK:
         start_index += index - 1
-        return token, temp
+        return tk, temp
 
-    elif token == COMPARATORTK:
+    elif tk == COMPARATORTK:
         opp = temp + symbol
         if opp in double_ops:
             start_index += index
-            return token, opp
+            return tk, opp
         elif symbol == "=":
             start_index += index
-            return token, symbol
+            return tk, symbol
         else:
             start_index += index - 1
-            return token, temp
+            return tk, temp
 
-    elif token == DECLARATORTK:
+    elif tk == DECLARATORTK:
         start_index += index
-        return token, ":="
+        return tk, ":="
 
-    elif token == EOFTK:
+    elif tk == EOFTK:
         start_index += index
-        return token, ""
+        return tk, ""
 
 
 def lex():
+    global char_index_of_line, line_index
     current_char = 0
     state = state0
     word = ""  # Word must be a buffer[30]
@@ -290,12 +315,16 @@ def lex():
     while state not in stateR and state not in stateE:
         if eof(current_char):
             state = states[state][19]  # All of them are in stateR so it exits immediately
-            current_char +=1
+            current_char += 1
         else:
             symbol = source[start_index + current_char]
+            if (state == state0 or state in comments) and symbol == "\n":
+                line_index += 1
+                char_index_of_line = 0
             state = update_state(state, symbol)
             if state in longs:  # State1 or State2 create IDs or Constants
-                word += symbol
+                if len(word) <= 30:
+                    word += symbol
             elif state == state3 or state == state4:
                 temp = symbol
             elif state == state5 or state == state8:
@@ -303,24 +332,531 @@ def lex():
             elif state == state11 or state == state12 or state == state13:
                 temp = symbol
             # Any other state does not affect the word
+            char_index_of_line += 1
             current_char += 1
 
     # start_index += current_char
     if state in stateE:
-        error(state)
+        lex_error(state, symbol)
     else:
-        token = state
-        return handle_return(token, word, temp, symbol, current_char)
+        tk = state
+        return handle_return(tk, word, temp, symbol, current_char)
+
+# ----------------------------------------------------|SYNTAX PART|-----------------------------------------------------
+
+
+def program():  # The starting grammar rule
+    global lexeme
+    lexeme = lex()
+    if lexeme[0] == PROGRAMTK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+            if lexeme[0] == BRACKETTK and lexeme[1] == "{":
+                lexeme = lex()
+                block()
+                if lexeme[0] == BRACKETTK and lexeme[1] == "}":
+                    print(colored("Syntax Check completed successfully!","green"))
+                else:
+                    syntax_error("Expected right curly bracket }")
+            else:
+                syntax_error("Expected left curly bracket {")
+        else:
+            syntax_error("The name of the program was expected")
+    else:
+        syntax_error("To start a program the keyword 'program' is expected")
+
+
+def block():
+    declarations()
+    subprograms()
+    statements()
+    return
+
+
+def declarations():
+    global lexeme
+    while lexeme[0] == DECLARETK:
+        lexeme = lex()
+        varlist()
+        if lexeme[0] == SEPARATORTK and lexeme[1] == ";":
+            lexeme = lex()
+        else:
+            syntax_error("Expected separator ;")
+    return
+
+
+def varlist():
+    global lexeme
+    if lexeme[0] == IDTK:
+        lexeme = lex()
+        while lexeme[0] == SEPARATORTK and lexeme[1] == ",":
+            lexeme = lex()
+            if lexeme[0] == IDTK:
+                lexeme = lex()
+            else:
+                syntax_error("Expected variable name")
+
+
+def subprograms():
+    global lexeme
+    while lexeme[0] == FUNCTIONTK or lexeme[0] == PROCEDURETK:
+        subprogram()
+
+
+def subprogram():
+    global lexeme
+    if lexeme[0] == FUNCTIONTK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+            funcbody()
+        else:
+            syntax_error("The name of the function was expected")
+
+    elif lexeme[0] == PROCEDURETK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+            funcbody()
+        else:
+            syntax_error("The name of the procedure was expected")
+
+
+def funcbody():
+    global lexeme
+    formalpars()
+    if lexeme[0] == BRACKETTK and lexeme[1] == "{":
+        lexeme = lex()
+        block()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "}":
+            lexeme = lex()
+        else:
+            syntax_error("Expected } bracket")
+    else:
+        syntax_error("Expected { bracket")
+
+
+def formalpars():
+    global lexeme
+    if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+        lexeme = lex()
+        formalparlist()
+        if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+            lexeme = lex()
+        else:
+            syntax_error("Right bracket expected")
+    else:
+        syntax_error("Expected left bracket")
+
+
+def formalparlist():
+    global lexeme
+    if lexeme[0] == INTK or lexeme[0] == INOUTTK:
+        formalparitem()
+    while lexeme[0] == SEPARATORTK and lexeme[1] == ",":
+        lexeme = lex()
+        formalparitem()
+
+
+def formalparitem():
+    global lexeme
+    if lexeme[0] == INTK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+        else:
+            syntax_error("Expected parameter name")
+
+    elif lexeme[0] == INOUTTK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+        else:
+            syntax_error("Expected parameter name")
+
+
+def statements():
+    global lexeme
+    if lexeme[0] == BRACKETTK and lexeme[1] == "{":
+        lexeme = lex()
+        statement()
+        while lexeme[0] == SEPARATORTK and lexeme[1] == ";":
+            lexeme = lex()
+            statement()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "}":
+            lexeme = lex()
+        else:
+            syntax_error("Right } bracket expected");
+    else:
+        statement()
+
+
+def statement():
+    assignment_stat()
+    if_stat()
+    while_stat()
+    doublewhile_stat()
+    loop_stat()
+    exit_stat()
+    forcase_stat()
+    call_stat()
+    return_stat()
+    input_stat()
+    print_stat()
+
+
+def assignment_stat():
+    global lexeme
+    if lexeme[0] == IDTK:
+        lexeme = lex()
+        if lexeme[0] == DECLARATORTK:
+            lexeme = lex()
+            expression()
+        else:
+            syntax_error("Expected := symbol for assignment")
+
+
+def if_stat():
+    global lexeme
+    if lexeme[0] == IFTK:
+        lexeme = lex()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+            lexeme = lex()
+            condition()
+            if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+                lexeme = lex()
+                if lexeme[0] == THENTK:
+                    lexeme = lex()
+                    statements()
+                    elsepart()
+                else:
+                    syntax_error("Expected keyword then")
+            else:
+                syntax_error("Expected closing bracket )")
+        else:
+            syntax_error("Expected opening bracket (")
+
+
+def elsepart():
+    global lexeme
+    if lexeme[0] == ELSETK:
+        lexeme = lex()
+        statements()
+
+
+def while_stat():
+    global lexeme
+    if lexeme[0] == WHILETK:
+        lexeme = lex()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+            lexeme = lex()
+            condition()
+            if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+                lexeme = lex()
+                statements()
+            else:
+                syntax_error("Right bracket expected")
+        else:
+            syntax_error("Expected left bracket")
+
+
+def doublewhile_stat():
+    global lexeme
+    if lexeme[0] == DOUBLEWHILETK:
+        lexeme = lex()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+            lexeme = lex()
+            condition()
+            if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+                lexeme = lex()
+                statements()
+                if lexeme[0] == ELSETK:
+                    lexeme = lex()
+                    statements()
+                else:
+                    syntax_error("Expected keyword else")
+            else:
+                syntax_error("Right bracket expected")
+        else:
+            syntax_error("Expected left bracket")
+
+
+def loop_stat():
+    global lexeme
+    if lexeme[0] == LOOPTK:
+        lexeme = lex()
+        statements()
+
+
+def exit_stat():
+    global lexeme
+    if lexeme[0] == EXITTK:
+        lexeme = lex()
+
+
+def forcase_stat():
+    global lexeme
+    if lexeme[0] == FORCASETK:
+        lexeme = lex()
+        while lexeme[0] == WHENTK:
+            lexeme = lex()
+            if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+                lexeme = lex()
+                condition()
+                if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+                    lexeme = lex()
+                    if lexeme[0] == SEPARATORTK and lexeme[1] == ":":
+                        lexeme = lex()
+                        statements()
+                    else:
+                        syntax_error("Expected : separator")
+                else:
+                    syntax_error("Expected closing bracket )")
+            else:
+                syntax_error("Expected opening bracket (")
+
+        if lexeme[0] == DEFAULTTK:
+            lexeme = lex()
+            if lexeme[0] == SEPARATORTK and lexeme[1] == ":":
+                lexeme = lex()
+                statements()
+            else:
+                syntax_error("Expected : symbol")
+        else:
+            syntax_error("Expected keyword default")
+
+
+def incase_stat():
+    global lexeme
+    if lexeme[0] == INCASETK:
+        lexeme = lex()
+        while lexeme[0] == WHENTK:
+            lexeme = lex()
+            if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+                lexeme = lex()
+                condition()
+                if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+                    lexeme = lex()
+                    if lexeme[0] == SEPARATORTK and lexeme[1] == ":":
+                        lexeme = lex()
+                        statements()
+                    else:
+                        syntax_error("Expected : separator")
+                else:
+                    syntax_error("Expected closing bracket )")
+            else:
+                syntax_error("Expected opening bracket (")
+
+
+def return_stat():
+    global lexeme
+    if lexeme[0] == RETURNTK:
+        lexeme = lex()
+        expression()
+
+
+def call_stat():
+    global lexeme
+    if lexeme[0] == CALLTK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+            actualpars()
+        else:
+            syntax_error("Expected variable name")
+
+
+def print_stat():
+    global lexeme
+    if lexeme[0] == PRINTTK:
+        lexeme = lex()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+            lexeme = lex()
+            expression()
+            if lexeme == BRACKETTK and lexeme[1] == ")":
+                lexeme = lex()
+            else:
+                syntax_error("Expected closing bracket )")
+        else:
+            syntax_error("Expected opening bracket (")
+
+
+def input_stat():
+    global lexeme
+    if lexeme[0] == INPUTTK:
+        lexeme = lex()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+            lexeme = lex()
+            if lexeme[0] == IDTK:
+                lexeme = lex()
+                if lexeme == BRACKETTK and lexeme[1] == ")":
+                    lexeme = lex()
+                else:
+                    syntax_error("Expected closing bracket )")
+            else:
+                syntax_error("Expected variable name")
+        else:
+            syntax_error("Expected opening bracket (")
+
+
+def actualpars():
+    global lexeme
+    if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+        lexeme = lex()
+        actualparlist()
+        if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+            lexeme = lex()
+        else:
+            syntax_error ("Right bracket expected")
+    else:
+        syntax_error("Expected opening bracket (")
+
+
+def actualparlist():
+    global lexeme
+    while lexeme[0] == INTK or lexeme[0] == INOUTTK:
+        lexeme = lex()
+        actualparitem()
+        if lexeme[0] == SEPARATORTK and lexeme[1] == ",":
+            lexeme = lex()
+        else:
+            syntax_error("Expected ,")
+
+
+def actualparitem():
+    global lexeme
+    if lexeme[0] == INTK:
+        lexeme = lex()
+        expression()
+    elif lexeme[0] == INOUTTK:
+        lexeme = lex()
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+        else:
+            syntax_error("Variable name was expected")
+
+
+def condition():
+    global lexeme
+    boolterm()
+    while lexeme[0] == ORTK:
+        lexeme = lex()
+        boolterm()
+
+
+def boolterm():
+    global lexeme
+    boolfactor()
+    while lexeme[0] == ANDTK:
+        lexeme = lex()
+        boolfactor()
+
+
+def boolfactor():
+    global lexeme
+
+    if lexeme[0] == NOTTK:
+        lexeme = lex()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "[":
+            lexeme = lex()
+            condition()
+            if lexeme[0] == BRACKETTK and lexeme[1] == "]":
+                lexeme = lex()
+            else:
+                syntax_error("Expected ]")
+        else:
+            syntax_error("Expected [")
+
+    elif lexeme[0] == BRACKETTK and lexeme[1] == "[":
+        lexeme = lex()
+        condition()
+        if lexeme[0] == BRACKETTK and lexeme[1] == "]":
+            lexeme = lex()
+        else:
+            syntax_error("Expected ]")
+    else:
+        expression()
+        relational_oper()
+        expression()
+
+
+def expression():
+    global lexeme
+    optionalsign()
+    term()
+    while lexeme[0] == ADDTK:
+        add_oper()
+        term()
+
+
+def term():
+    global lexeme
+    factor()
+    while lexeme[0] == MULTIPLYTK:
+        mul_oper()
+        factor()
+
+
+def factor():
+    global lexeme
+    if lexeme[0] == CONSTANTTK:
+        lexeme = lex()
+    elif lexeme[0] == BRACKETTK and lexeme[1] == "(":
+        lexeme = lex()
+        condition()
+        if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+            lexeme = lex()
+        else:
+            syntax_error("Right bracket expected")
+    else:
+        if lexeme[0] == IDTK:
+            lexeme = lex()
+            idtail()
+
+
+def idtail():
+    actualpars()
+
+
+def relational_oper():
+    global lexeme
+    if lexeme[0] == COMPARATORTK:
+        lexeme = lex()
+    else:
+        syntax_error("Expected Relational Operator")
+
+
+def add_oper():
+    global lexeme
+    if lexeme[0] == ADDTK:
+        lexeme = lex()
+
+
+def mul_oper():
+    global lexeme
+    if lexeme[0] == MULTIPLYTK:
+        lexeme = lex()
+
+
+def optionalsign():
+    add_oper()
+
+# -----------------------------------------------------|MAIN PART|------------------------------------------------------
 
 
 def load_source(filename):
     global source
+    file = filename.split(".")
+    if file[1] != "min":
+        print("This compiler only works for .min files")
+        exit()
     source = open(filename).read()
     return
 
 
 def main():
     load_source("source.min")
-    for i in range(0, 4):
-        print(lex())
+    program()
+
 main()
