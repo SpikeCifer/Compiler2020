@@ -1,10 +1,10 @@
+import sys
 # ---------------------------------------------------|CONTRIBUTERS|-----------------------------------------------------
 # 2971: ΣΤΥΛΙΑΝΟΣ ΖΑΠΠΙΔΗΣ  cse52971
 # 3059: ΖΗΣΙΜΟΣ ΠΑΡΑΣΧΗΣ    cse53059
 # -----------------------------------------------------|TODO_NOTES|-----------------------------------------------------
-# TODO: After each tag add : (This creates a problem in backpatch)
-# -------------------------------------------------|Other Libraries|----------------------------------------------------
-# from termcolor import colored
+# TODO: Test with big programs
+# TODO: Fix char_index_of_line
 # -----------------------------------------------------|GLOBALS|--------------------------------------------------------
 source = ""
 start_index = 0
@@ -17,6 +17,7 @@ char_index_of_line = 0      # Will be used for errors
 tag_index = 1
 quadsList = []  # It's a list of lists
 temp_index = 1
+program_name = ""
 # ------------------------ DEFINE STATES PART ------------------------
 state0 = 0    # This is the starting state
 state1 = 1    # Lex is reading IDs
@@ -37,8 +38,6 @@ state11 = 11  # Lex has read < symbol
 state12 = 12  # Lex has read > symbol
 state13 = 13  # Lex has read : symbol
 
-specials1 = {state3, state4}       # The states where depending on the next char return or not
-specials2 = {state10, state11}     # The states where depending on the next char they add it to the word
 comments = {state5, state6, state7, state8, state9, state10}
 # ---------------------------- DEFINE GENERAL TOKENS PART ----------------------------
 EOFTK = 14
@@ -55,10 +54,9 @@ stateR = {EOFTK, IDTK, CONSTANTTK, ADDTK,
           MULTIPLYTK, BRACKETTK, SEPARATORTK, COMPARATORTK, DECLARATORTK}
 
 singles = {ADDTK, BRACKETTK, SEPARATORTK}
-longs = {state1, state2}
 
 # ---------------------------------|DEFINE KEYWORDS PART|---------------------------------
-# All of them were originally IDTKs, we now come to specify them
+# All of them were originally IDTKs, we now have to specify them
 PROGRAMTK = 23
 DECLARETK = 24
 IFTK = 25
@@ -84,10 +82,14 @@ INPUTTK = 44
 PRINTTK = 45
 THENTK = 46
 
+# ---------------------------------- USEFULL LISTS ---------------------------
 taken_words = ["program", "declare", "if", "else", "while", "doublewhile", "loop", "exit", "forcase", "incase",
                "when", "default", "not", "and", "or", "function", "procedure", "call", "return", "in",
-               "inout", "input", "print", "then"]
-double_ops = ["<>", ">=", "<=", ":="]
+               "inout", "input", "print", "then"]                    # This list keeps the key words
+double_ops = ["<>", ">=", "<=", ":="]  # This list keeps the double operator symbols
+statement_tokens = [IDTK, IFTK, WHILETK, DOUBLEWHILETK, LOOPTK, EXITTK, FORCASETK, INCASETK, RETURNTK,
+                    CALLTK, INPUTTK, PRINTTK]               # This list keeps all available statement tokens
+
 # ----------------------- LEX ERRORS -----------------------
 Error1 = 47  # Char after Digit
 Error2 = 48  # Closed long comment without opening one
@@ -96,7 +98,7 @@ Error4 = 50  # EOF while in long comment
 Error5 = 51  # Invalid symbol
 stateE = {Error1, Error2, Error3, Error4, Error5}
 # ----------------------- LEX PART -----------------------
-
+# All of Lexer's states
 states = [
     # state0
     [state1, state2, ADDTK, state3, state4, state11, state12,
@@ -157,30 +159,47 @@ states = [
 ]
 
 
+# Function Load Source opens the source code file and saves the code in global variable source
+def main():
+    load_source("source.min")
+    program()
+    return
+
+
+def load_source(filename):
+    global source
+    file = filename.split(".")
+    if file[1] != "min":
+        print("This compiler only works for .min files", "red")
+        exit()
+    try:
+        source = open(filename).read()
+    except FileNotFoundError:
+        print("I was incapable of finding the file you requested,\n"
+              "please make sure it's in the same folder as the compiler!")
+        exit()
+    return
+# ----------------------------------------------------|LEXER PART|-----------------------------------------------------
+
+
 def lex_error(error_type, c):  # Prints an appropriate lex error message
-    print("Warning! Lex Error \nLine:", line_index, "Character:", char_index_of_line)
-    error_message = "Error_Type " + str(error_type)
+    print("Lex Error! \nLine:", line_index, "Character:", char_index_of_line)
+    error_message = "Error Type "
     if error_type == Error1:
-        error_message += ": Digits can not be followed by characters"
+        error_message += "1: Digits can not be followed by characters"
     elif error_type == Error2:
-        error_message += ": Closed long comment without opening one"
+        error_message += "2: Closed long comment without opening one"
     elif error_type == Error3:
-        error_message += ": Opened second comment inside another one"
+        error_message += "3: Opened second comment inside another one"
     elif error_type == Error4:
-        error_message += ": EOF while in long comment"
+        error_message += "4: EOF while in long comment"
     elif error_type == Error5:
-        error_message += ": Invalid symbol " + "'"+c+"'"
+        error_message += "5: Invalid symbol " + "'"+c+"'"
     else:
         error_message += "404: Undefined Error"
     print(error_message)
     exit()
-
-
-def syntax_error(s):
-    print("Warning! Syntax Error")
-    print("In line", line_index)
-    print(s)
-    exit()
+    return
 
 
 def eof(current_char):
@@ -266,9 +285,8 @@ def handle_return(tk, word, temp, symbol, index):
         return tk, word
 
     elif tk == CONSTANTTK:
-        number = int(word)
-        if number > 32767 or number < -32767:
-            print("Lex Warning!\nNumber "+ word + " is out of bounds")
+        if int(word) < -32767 or int(word) > 32767:
+            print("Lex Warning!\nAt line "+str(line_index)+", number "+word+" is out of bounds")
         start_index += index - 1
         return tk, word
 
@@ -318,38 +336,40 @@ def lex():
             current_char += 1
         else:
             symbol = source[start_index + current_char]
-            if (state == state0 or state in comments) and symbol == "\n":
+            # if current state is a comment or starting state and lex read new line, update error pointers
+            if (state == state0 or state in comments) and symbol == '\n':
                 line_index += 1
                 char_index_of_line = 0
+
             state = update_state(state, symbol)
-            if state in longs:  # State1 or State2 create IDs or Constants
-                if len(word) <= 30:
+            if state in [state1, state2]:  # State1 creates ids, State2 creates Constants
+                if len(word) <= 30:        # If max buffer size has been reached don't add to word
                     word += symbol
-            elif state == state3 or state == state4:
+            elif state in [state3, state4]:
                 temp = symbol
-            elif state == state5 or state == state8:
+            elif state in [state5, state8]:
                 temp = ""
-            elif state == state11 or state == state12 or state == state13:
+            elif state in [state11, state12, state13]:
                 temp = symbol
             # Any other state does not affect the word
-            char_index_of_line += 1
             current_char += 1
 
+    char_index_of_line += current_char - 1
     # start_index += current_char
     if state in stateE:
         lex_error(state, symbol)
     else:
         tk = state
         return handle_return(tk, word, temp, symbol, current_char)
-
-
 # --------------------------------------------|INTERMEDIATE CODE FUNCTIONS|---------------------------------------------
+
+
 def nextQuad():
     return tag_index
 
 
 def genQuad(op, x, y, z):  # They are all strings
-    global tag_index, quadList
+    global tag_index
     tag = str(tag_index)+":"
     tag_index += 1
     quad = [tag, op, x, y, z]
@@ -360,6 +380,7 @@ def genQuad(op, x, y, z):  # They are all strings
 def printQuads():
     for quad in quadsList:
         print(quad)
+    return
 
 
 def newTemp():
@@ -383,42 +404,103 @@ def mergeLists(l1, l2):
     return l1 + l2
 
 
-def backpatch(list, label):
+def backpatch(patchlist, label):
     global quadsList
-    for tag in list:
+    for tag in patchlist:
         for quad in quadsList:
-            if quad[0].split(":")[0] == str(tag):  # When this gets over 9 it reads just 1
+            if quad[0].split(":")[0] == str(tag):
                 quad[4] = label
+    return
+
+
+def createC():  # This function creates an equal C program
+    printQuads()
+    file = open(program_name+".c", "w")
+    file.write("#include <stdio.h>\n")
+    file.write("int main(){\n")
+
+    for quad in quadsList:
+        line_result = "\tL_" + quad[0] + " "  # Create Label
+        if quad[1] not in ['begin_block', 'end_block']:
+            # Special Jump Command
+            if quad[1] == "jump":
+                line_result += "goto L_" + str(quad[4])
+
+            # User communication commands
+            elif quad[1] == "out":
+                line_result += 'printf("'+'%d",'+quad[2]+')'
+            elif quad[1] == "inp":
+                line_result += 'scanf("'+'%d",&'+quad[2]+')'
+
+            # Assignment command
+            elif quad[1] == ":=":
+                line_result += str(quad[4]) + "=" + str(quad[2])
+
+            # Logic operators
+            elif quad[1] in "<>=":
+                if quad[1] == "=":
+                    line_result += "if (" + str(quad[2]) + "==" + str(quad[3]) + ") goto L_" + str(quad[4])
+                else:
+                    line_result += "if (" + str(quad[2]) + str(quad[1]) + str(quad[3]) + ") goto L_" + str(quad[4])
+
+            # Math functions
+            elif quad[1] in '+-*/':
+                line_result += str(quad[4]) + "=" + str(quad[2]) + str(quad[1]) + str(quad[3])
+
+            # Exit of block and exit command (Should not be the same)
+            elif quad[1] == "halt":
+                line_result += "exit(0)"
+
+            # In case I forgot something
+            else:
+                print("You forgot command(s)", quad[1])
+
+            # End line and print the quad in short comment
+            line_result += "; //" + str(quad[1:]) + "\n"
+        else:
+            line_result += " //" + str(quad[1:]) + "\n"  # Not a command line
+        file.write(line_result)
+    file.write("}")     # Close main block
+    file.close()
     return
 # ----------------------------------------------------|SYNTAX PART|-----------------------------------------------------
 
 
+def syntax_error(error):
+    print("Warning! Syntax Error")
+    print("In line", line_index, "Character", char_index_of_line)
+    print(error)
+    exit()
+    return
+
+
 def program():  # The starting grammar rule
-    global lexeme
+    global lexeme, program_name
     lexeme = lex()
     if lexeme[0] == PROGRAMTK:
         lexeme = lex()
         if lexeme[0] == IDTK:
-            name = lexeme[1]  # store program's name
+            program_name = lexeme[1]
             lexeme = lex()
-            if lexeme[0] == BRACKETTK and lexeme[1] == "{":
+            if lexeme[1] == '{':
                 lexeme = lex()
-                block(name)
-                if lexeme[0] == BRACKETTK and lexeme[1] == "}":
+                block(program_name)
+                if lexeme[1] == '}':
                     print("Syntax Check completed successfully!!")
-                    printQuads()
+                    createC()
                 else:
                     msg = ""
                     finalT = lexeme
                     lexeme = lex()
-                    if finalT[1] == ";" and lexeme[1] == "}":
-                        msg += "';' character is not required at the end of last line"
-                    elif finalT[1] in taken_words:
-                        msg += "Statements not separated by ';' oper"
-                    else:
-                        msg += "Check if multiple statements are used not in {} block"
-                    syntax_error("Expected '}' character to end program's block\nSuggestion: "+msg)
 
+                    if finalT[1] == ";" and lexeme[1] == "}":
+                        msg += "The ';' separator is unnecessary after the program's last statement."
+                    elif finalT[1] in taken_words:
+                        msg += "Statements not separated by ';' operator"
+                    else:
+                        msg += "Check if multiple statements are not inside {} blocks"
+
+                    syntax_error("Expected '}' bracket to end program's block\n"+msg)
             else:
                 syntax_error("Expected '{' character to start program's block")
         else:
@@ -431,11 +513,10 @@ def program():  # The starting grammar rule
 def block(name):
     declarations()
     subprograms()
-
     genQuad("begin_block", name, "_", "_")
     statements()
-    # if (this is the main program block)
-    # genquad("halt", "_", "_", "_")
+    if name == program_name:
+        genQuad("halt", "_", "_", "_")
     genQuad("end_block", name, "_", "_")
     return
 
@@ -444,25 +525,32 @@ def declarations():
     global lexeme
     while lexeme[0] == DECLARETK:
         lexeme = lex()
-        varlist()
-        if lexeme[0] == SEPARATORTK and lexeme[1] == ";":
+        char = varlist()
+        if lexeme[1] == ';':
             lexeme = lex()
         else:
-            syntax_error("';' oper not found at the end of declare line")
+            syntax_error("Either ',' or ';' separator was expected after variable "+char)
     return
 
 
 def varlist():
     global lexeme
+    last_char = ""
     if lexeme[0] == IDTK:
+        last_char = lexeme[1]
         lexeme = lex()
-        while lexeme[0] == SEPARATORTK and lexeme[1] == ",":
+        while lexeme[1] == ',':
             lexeme = lex()
             if lexeme[0] == IDTK:
+                last_char = lexeme[1]
                 lexeme = lex()
             else:
-                syntax_error("Expected variable after ',' character")
-    return
+                syntax_error("Expected variable's name after ',' character")
+    elif lexeme[1] == ',':
+        syntax_error("Expected a variable's name before the first ',' character")
+    return last_char  # Return the last character written before the error pops up
+
+# _________________________________________________ SUBPROGRAMS __________________________________________________
 
 
 def subprograms():
@@ -517,10 +605,10 @@ def formalpars():
         if lexeme[0] == BRACKETTK and lexeme[1] == ")":
             lexeme = lex()
         else:
-            msg = "Expected ')' character to stop declaring parameters"
             if lexeme[0] == IDTK:
-                msg += "\nCheck if you have missed a parameter's type"
-            syntax_error(msg)
+                syntax_error("Parameter "+lexeme[1]+"'s type has not been declared")
+            else:
+                syntax_error("Expected either another variable name or ')' to stop declaring parameters")
     else:
         syntax_error("Expected '(' character to start declaring parameters")
     return
@@ -532,91 +620,23 @@ def formalparlist():
         formalparitem()
         while lexeme[0] == SEPARATORTK and lexeme[1] == ",":
             lexeme = lex()
+            if lexeme[0] not in [INTK, INOUTTK]:
+                syntax_error("Expected another parameter's type after ','")
             formalparitem()
+    return
 
 
 def formalparitem():
     global lexeme
-    if lexeme[0] == INTK:
+    if lexeme[0] in [INTK, INOUTTK]:
+        par_type = lexeme[1]
         lexeme = lex()
         if lexeme[0] == IDTK:
             lexeme = lex()
         else:
-            syntax_error("Expected parameter name after in keyword")
-
-    elif lexeme[0] == INOUTTK:
-        lexeme = lex()
-        if lexeme[0] == IDTK:
-            lexeme = lex()
-        else:
-            syntax_error("Expected parameter name after inout keyword")
-    else:
-        syntax_error("Expected parameter type")
-
-
-def statements():
-    global lexeme
-    if lexeme[0] == BRACKETTK and lexeme[1] == "{":
-        lexeme = lex()
-        statement()
-        while lexeme[0] == SEPARATORTK and lexeme[1] == ";":
-            lexeme = lex()
-            statement()
-        if lexeme[0] == BRACKETTK and lexeme[1] == "}":
-            lexeme = lex()
-        else:
-            syntax_error("Right curly bracket } was expected to stop statements block"
-                         "\nCheck if you have missed a ; operator between statements")
-    else:
-        statement()
-
-
-def statement():
-    global lexeme
-    if lexeme[0] == IDTK:
-        id = lexeme[1]
-        lexeme = lex()
-        assignment_stat(id)
-    elif lexeme[0] == IFTK:
-        lexeme = lex()
-        if_stat()
-    elif lexeme[0] == WHILETK:
-        lexeme = lex()
-        while_stat()
-    elif lexeme[0] == DOUBLEWHILETK:
-        lexeme = lex()
-        doublewhile_stat()
-    elif lexeme[0] == LOOPTK:
-        lexeme = lex()
-        loop_stat()
-    elif lexeme[0] == EXITTK:
-        lexeme = lex()
-        exit_stat()
-    elif lexeme[0] == FORCASETK:
-        lexeme = lex()
-        forcase_stat()
-    elif lexeme[0] == INCASETK:
-        lexeme = lex()
-        incase_stat()
-    elif lexeme[0] == RETURNTK:
-        lexeme = lex()
-        return_stat()
-    elif lexeme[0] == CALLTK:
-        lexeme = lex()
-        call_stat()
-    elif lexeme[0] == INPUTTK:
-        lexeme = lex()
-        input_stat()
-    elif lexeme[0] == PRINTTK:
-        lexeme = lex()
-        print_stat()
-    else:
-        if lexeme[1] == "}":
-            syntax_error("Expected a statement")
-        elif lexeme[1] == ";":
-            syntax_error("Unnecessary ; at last statement")
-        else:
-            syntax_error("Invalid statement")
+            syntax_error("Expected parameter's name after type "+par_type)
+    return
+# ______________________________________________ STATEMENTS _____________________________________
 
 
 def assignment_stat(var):
@@ -630,7 +650,7 @@ def assignment_stat(var):
     return
 
 
-def if_stat():  # S -> if B then {P1} S1{P2}TAIL {P3}
+def if_stat():  # S -> if B then {P1} S1 {P2} TAIL{P3}
     global lexeme
     if lexeme[0] == BRACKETTK and lexeme[1] == "(":
         lexeme = lex()
@@ -644,18 +664,18 @@ def if_stat():  # S -> if B then {P1} S1{P2}TAIL {P3}
                 lexeme = lex()
                 statements()  # S1
 
-                ifList = makeList(nextQuad())
+                ifList = makeList(nextQuad())  # Create a jump, and fill it after the else part is done
                 genQuad("jump", "_", "_", "_")
                 backpatch(BFalse, nextQuad())
                 elsepart(C)
 
-                backpatch(ifList, nextQuad())
+                backpatch(ifList, nextQuad())  # Else part is done, if True jump to the next quad
             else:
-                syntax_error("Expected keyword 'then'")
+                syntax_error("Expected keyword 'then' after if clause's condition")
         else:
-            syntax_error("Expected right bracket ) to close if condition")
+            syntax_error("Expected right bracket ) to close if clause's condition")
     else:
-        syntax_error("Expected left bracket ( to open if condition")
+        syntax_error("Expected left bracket ( to open if clause's condition")
 
 
 def elsepart(C):
@@ -668,29 +688,70 @@ def elsepart(C):
 
 def while_stat():
     global lexeme
+    '''
+    BTrue = emptyList()
+    BFalse = emptyList()
+    '''
     if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+        Bquad = nextQuad()  # Return to condition check
         lexeme = lex()
-        condition()
+        C = condition()
+
+        BTrue = C[0]
+        BFalse = C[1]
         if lexeme[0] == BRACKETTK and lexeme[1] == ")":
             lexeme = lex()
+            backpatch(BTrue, nextQuad())
             statements()
+            genQuad("jump", "_", "_", Bquad)
+            backpatch(BFalse, nextQuad())
         else:
             syntax_error("Expected right bracket ) to close while condition")
     else:
         syntax_error("Expected left bracket ( to open while condition")
 
 
-def doublewhile_stat():
+# optional
+def doublewhile_stat():  # The state/flag was an interesting concept
     global lexeme
+    '''
+    BTrue = emptyList()
+    BFalse = emptyList()
+    '''
     if lexeme[0] == BRACKETTK and lexeme[1] == "(":
+        state = newTemp()
+        genQuad(":=", "0", "_", state)  # Initialize loop state
+        condQuad = nextQuad()
         lexeme = lex()
-        condition()
+        C = condition()
+
+        BTrue = C[0]
+        BFalse = C[1]
         if lexeme[0] == BRACKETTK and lexeme[1] == ")":
             lexeme = lex()
-            statements()
+
+            backpatch(BTrue, nextQuad())
+            state1_list = makeList(nextQuad())
+            genQuad("=", "2", state, "_")
+            genQuad(":=", "1", "_", state)
+
+            statements()  # True statements
+            genQuad("jump", "_", "_", condQuad)
             if lexeme[0] == ELSETK:
                 lexeme = lex()
+
+                backpatch(BFalse, nextQuad())
+                state2_list = makeList(nextQuad())
+                genQuad("=", "1", state, "_")
+                genQuad(":=", "2", "_", state)
+
                 statements()
+
+                genQuad("jump", "_", "_", condQuad)
+
+                backpatch(state1_list, nextQuad())
+                backpatch(state2_list, nextQuad())
+
             else:
                 syntax_error("Expected keyword 'else' for doublewhile to have the proper syntax")
         else:
@@ -699,26 +760,43 @@ def doublewhile_stat():
         syntax_error("Expected left bracket ( to start doublewhile condition")
 
 
-def loop_stat():
+# optional
+def loop_stat():  # The program repeats the following statments until
+    Bquad = nextQuad()
     statements()
+    genQuad("jump", "_", "_", Bquad)
 
 
+# optional
 def exit_stat():
+    genQuad("halt", "_", "_", "_")
     return
 
 
 def forcase_stat():
     global lexeme
+    BTrue = emptyList()
+    BFalse = emptyList()
+
+    case = newTemp()
+    first_quad = nextQuad()  # Keep the first quad, we will return to it
     while lexeme[0] == WHENTK:
         lexeme = lex()
         if lexeme[0] == BRACKETTK and lexeme[1] == "(":
             lexeme = lex()
-            condition()
+            C = condition()
+            BTrue = C[0]
+            BFalse = C[1]
             if lexeme[0] == BRACKETTK and lexeme[1] == ")":
                 lexeme = lex()
                 if lexeme[0] == SEPARATORTK and lexeme[1] == ":":
                     lexeme = lex()
+
+                    backpatch(BTrue, nextQuad())
                     statements()
+                    genQuad("jump", "_", "_", first_quad)
+                    backpatch(BFalse, nextQuad())
+
                 else:
                     syntax_error("Expected ':' after condition symbol")
             else:
@@ -727,6 +805,7 @@ def forcase_stat():
             syntax_error("Expected opening bracket ( for when case condition")
 
     if lexeme[0] == DEFAULTTK:
+
         lexeme = lex()
         if lexeme[0] == SEPARATORTK and lexeme[1] == ":":
             lexeme = lex()
@@ -737,37 +816,58 @@ def forcase_stat():
         syntax_error("Expected keyword 'default' for the default case")
 
 
+# optional
 def incase_stat():
     global lexeme
+    BTrue = emptyList()
+    BFalse = emptyList()
+
+    t = newTemp()
+    first_quad = nextQuad()
+    genQuad(":=", "0", "_", t)
+
     while lexeme[0] == WHENTK:
         lexeme = lex()
         if lexeme[0] == BRACKETTK and lexeme[1] == "(":
             lexeme = lex()
-            condition()
+            C = condition()
+            BTrue = C[0]
+            BFalse = C[1]
             if lexeme[0] == BRACKETTK and lexeme[1] == ")":
                 lexeme = lex()
                 if lexeme[0] == SEPARATORTK and lexeme[1] == ":":
                     lexeme = lex()
+                    backpatch(BTrue, nextQuad())
                     statements()
+                    genQuad(":=", "1", "_", t)
+                    backpatch(BFalse, nextQuad())
                 else:
                     syntax_error("Expected ':' after condition symbol")
             else:
                 syntax_error("Expected closing bracket ) to close when case condition")
         else:
             syntax_error("Expected opening bracket ( for when case condition")
+    genQuad("=", "1", t, first_quad)
+    return
 
 
 def return_stat():
-    expression()
+    genQuad("retv", expression(), "_","_")
+    return
 
-# This is not necessary
+
 def call_stat():
     global lexeme
     if lexeme[0] == IDTK:
+        function = lexeme[1]
         lexeme = lex()
         actualpars()
+        genQuad("call", '_', "_", function)
     else:
-        syntax_error("Expected name of function to call")
+        if lexeme[1] in taken_words:
+            syntax_error(lexeme[1]+" is a key word, you can not use it as a function's name")
+        else:
+            syntax_error("Expected name of procedure to call")
 
 
 def print_stat():
@@ -800,44 +900,113 @@ def input_stat():
         syntax_error("Expected opening bracket ( for input statement")
 
 
+statements_selector = {
+    IDTK: assignment_stat,
+    IFTK: if_stat,
+    WHILETK: while_stat,
+    DOUBLEWHILETK: doublewhile_stat,
+    LOOPTK: loop_stat,
+    EXITTK: exit_stat,
+    FORCASETK: forcase_stat,
+    INCASETK: incase_stat,
+    RETURNTK: return_stat,
+    CALLTK: call_stat,
+    PRINTTK: print_stat,
+    INPUTTK: input_stat
+}
+
+
+def statements():
+    global lexeme
+    statements_counter = [0]
+    if lexeme[0] == BRACKETTK and lexeme[1] == "{":
+        lexeme = lex()
+        statement(statements_counter)
+        while lexeme[0] == SEPARATORTK and lexeme[1] == ";":
+            lexeme = lex()
+            statement(statements_counter)
+
+        if lexeme[0] == BRACKETTK and lexeme[1] == "}":
+            lexeme = lex()
+        else:
+            syntax_error("Right curly bracket } was expected to stop statements block"
+                         "\nMaybe you missed a ';' operator between previous statements")
+    else:
+        statement(statements_counter)
+    return
+
+
+def statement(counter):
+    global lexeme
+    if lexeme[0] in statement_tokens:
+        counter[0] += 1
+        statement_id = statements_selector.get(lexeme[0])
+        if lexeme[0] == IDTK:  # Special case where a parameter has to be passed to the method
+            word = lexeme[1]
+            lexeme = lex()
+            statement_id(word)
+        else:
+            lexeme = lex()
+            statement_id()
+    else:
+        expected = "Error 1. Expected a statement!"
+        if counter[0] > 0:
+            syntax_error(expected+"\nProblem: The block's last statement has no need of ';' separator")
+        elif lexeme[1] == '}':
+            syntax_error(expected+"\nProblem: I am sorry, our services do not accept empty statement blocks")
+        else:
+            syntax_error("Expected '}' bracket")
+    return
+
+
 def actualpars():
     global lexeme
     if lexeme[0] == BRACKETTK and lexeme[1] == "(":
         lexeme = lex()
-        actualparlist()
+        parlist = actualparlist() # Get the parameters' list
         if lexeme[0] == BRACKETTK and lexeme[1] == ")":
+            for par in parlist:
+                genQuad("par", par[1], par[0], '_') # Create the parameter quads after you have collected all parameters
             lexeme = lex()
         else:
-            syntax_error("Expected right bracket ) to close call parameters")
+            msg = "Expected right bracket ) to close call parameters"
+            if lexeme[0] == IDTK:
+                msg += "\n Suggestion: Parameter "+lexeme[1]+"'s type has not been declared"
+            syntax_error(msg)
     else:
         syntax_error("Expected opening bracket ( to open call parameters")
 
 
 def actualparlist():
     global lexeme
+    parlist = []
     if lexeme[0] == INTK or lexeme[0] == INOUTTK:
-        actualparitem()
+        parlist.append(actualparitem())
         while lexeme[0] == SEPARATORTK and lexeme[1] == ",":
             lexeme = lex()
-            actualparitem()
+            parlist.append(actualparitem())
+    return parlist
 
 
 def actualparitem():
     global lexeme
-    if lexeme[0] == INTK:
+    par_type = ''
+    if lexeme[0] == INTK:  # CV par
+        par_type = 'CV'
         lexeme = lex()
-        expression()
-    elif lexeme[0] == INOUTTK:
+        var = expression()
+    elif lexeme[0] == INOUTTK:  # REF par
+        par_type = 'REF'
         lexeme = lex()
         if lexeme[0] == IDTK:
+            var = lexeme[1]
             lexeme = lex()
         else:
             syntax_error("Variable name was expected")
-    else:
-        syntax_error("Expected type of parameter")
+    return par_type, var # Return parameter type and name
 
 
-def condition():  # B-> Q1{P1}(or {P2}Q2 {P3})*
+def condition():  # B-> Q1{P1}(OR {P2}Q2 {P3})*
     global lexeme
     BTrue = emptyList()
     BFalse = emptyList()
@@ -856,7 +1025,7 @@ def condition():  # B-> Q1{P1}(or {P2}Q2 {P3})*
     return BTrue, BFalse
 
 
-def boolterm():  # Q->R1{P1}( and {P2}R2 {P3})*
+def boolterm():  # Q->R1{P1}( AND {P2}R2 {P3})*
     global lexeme
     QTrue = emptyList()
     QFalse = emptyList()
@@ -867,7 +1036,7 @@ def boolterm():  # Q->R1{P1}( and {P2}R2 {P3})*
     QFalse = R1[1]  # R1.false
     while lexeme[0] == ANDTK:  # (and {P2} R2{P3})*
 
-        backpatch(QTrue, nextQuad())
+        backpatch(QTrue, nextQuad())  # If condition is true, go to the immediate next quad
 
         lexeme = lex()
         R2 = boolfactor()
@@ -889,8 +1058,8 @@ def boolfactor():
             B = condition()  # R ->( B )
 
             # {P1}:
-            RTrue = B[0]
-            RFalse = B[1]
+            RTrue = B[1]
+            RFalse = B[0]
             if lexeme[0] == BRACKETTK and lexeme[1] == "]":
                 lexeme = lex()
             else:
@@ -925,7 +1094,7 @@ def boolfactor():
 
 def expression():
     global lexeme
-    sign = optional_sign()  # Where should this be saved?
+    sign = optional_sign()
     T1place = sign + term()
     while lexeme[0] == ADDTK:  # (+T2{P1})*
         oper = add_oper()
@@ -965,18 +1134,24 @@ def factor():
             syntax_error("Right bracket ')' expected")
 
     elif lexeme[0] == IDTK:
-        Fplace = lexeme[1]
+        id = lexeme[1]
         lexeme = lex()
-        idtail()
+        Fplace = idtail(id)
     else:
         syntax_error("This factor's syntax is not supported")
 
     return Fplace
 
 
-def idtail():
+def idtail(id):
     if lexeme[0] == BRACKETTK and lexeme[1] == "(":
         actualpars()
+        w = newTemp()
+        genQuad("par", w, "RET", "_")
+        genQuad("call", '_', '_', id)
+        return w
+    else:
+        return id
 
 
 def relational_oper():
@@ -1014,23 +1189,6 @@ def optional_sign():
          sign = add_oper()
     return sign
 
-# Function Load Source opens the source code file and saves the code in global variable source
-def load_source(filename):
-    global source
-    file = filename.split(".")
-    if file[1] != "min":
-        print("This compiler only works for .min files", "red")
-        exit()
-    try:
-        source = open(filename).read()
-    except:
-        print("I was incapable of finding the file you requested,\n"
-              "please make sure it's in the same folder as the compiler!")
-        exit()
-    return
 
-
-def main():
-    load_source("source.min")
-    program()
-main()
+if __name__ == "__main__":
+    main()
